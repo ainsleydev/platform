@@ -39,6 +39,11 @@ output "domain" {
   value       = var.domain
 }
 
+output "ansible_inventory_path" {
+  description = "Path to the auto-generated Ansible inventory file"
+  value       = local_file.ansible_inventory.filename
+}
+
 output "access_instructions" {
   description = "Instructions for accessing the server"
   value       = <<-EOT
@@ -48,19 +53,18 @@ output "access_instructions" {
     Domain: ${var.domain}
     SSH User: ${module.server.server_user}
 
+    Ansible inventory file generated at: ${local_file.ansible_inventory.filename}
+
     To SSH into the server:
-    1. Save the SSH private key: terraform output -raw ssh_private_key > uptime-kuma-key.pem
-    2. Set permissions: chmod 600 uptime-kuma-key.pem
-    3. Connect: ssh -i uptime-kuma-key.pem ${module.server.server_user}@${module.server.ip_address}
+    1. Save the SSH private key: make ssh-key
+    2. Connect: ssh -i uptime-kuma-key.pem ${module.server.server_user}@${module.server.ip_address}
 
     DNS Configuration Required:
     ---------------------------
     Add an A record for ${var.domain} pointing to ${module.server.ip_address}
 
-    After DNS is configured, run the Ansible playbook to deploy Uptime Kuma:
-    ansible-playbook -i ${module.server.ip_address}, ansible/playbooks/uptime-kuma.yaml \
-      -e "domain=${var.domain}" \
-      -e "admin_email=${var.admin_email}"
+    To deploy or update Uptime Kuma with Ansible:
+    make deploy-uptime
 
     Then access at: https://${var.domain}
   EOT

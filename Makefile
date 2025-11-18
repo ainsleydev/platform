@@ -49,6 +49,15 @@ ssh-key: # Save SSH private key to file
 	@echo "SSH key saved to uptime-kuma-key.pem"
 .PHONY: ssh-key
 
+deploy-uptime: # Deploy or update Uptime Kuma using Ansible
+	@echo "Deploying Uptime Kuma..."
+	@if [ ! -f ansible/inventory-uptime-kuma.ini ]; then \
+		echo "Error: Ansible inventory file not found. Run 'make apply' first to generate it."; \
+		exit 1; \
+	fi
+	cd ansible && ansible-playbook -i inventory-uptime-kuma.ini playbooks/uptime-kuma.yaml
+.PHONY: deploy-uptime
+
 todo: # Show to-do items per file
 	$(Q) grep \
 		--exclude=Makefile.util \
