@@ -6,7 +6,7 @@ module "volume" {
   name      = "${var.service_name}-data"
   size      = var.volume_size
   location  = var.location
-  server_id = hcloud_server.this.id
+  server_id = module.server.id
   format    = "ext4"
   automount = true
   tags      = concat(var.tags, [var.environment])
