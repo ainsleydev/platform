@@ -1,9 +1,13 @@
 # Makefile for Terraform scripts
 
+# Terraform working directory
+TF_DIR := terraform/base
+
 setup: # Setup's local machine
 	brew install terraform
 	brew install tflint
 	brew install jq
+	brew install ansible
 .PHONY: setup
 
 fmt: # Format Terraform files
@@ -13,6 +17,34 @@ fmt: # Format Terraform files
 lint: # Lint Terraform files
 	tflint
 .PHONY: lint
+
+init: # Initialize Terraform with B2 backend
+	cd $(TF_DIR) && terraform init \
+		-backend-config="access_key=${BACK_BLAZE_KEY_ID}" \
+		-backend-config="secret_key=${BACK_BLAZE_APPLICATION_KEY}"
+.PHONY: init
+
+plan: # Run Terraform plan
+	cd $(TF_DIR) && terraform plan
+.PHONY: plan
+
+apply: # Apply Terraform changes
+	cd $(TF_DIR) && terraform apply
+.PHONY: apply
+
+destroy: # Destroy Terraform infrastructure
+	cd $(TF_DIR) && terraform destroy
+.PHONY: destroy
+
+output: # Show Terraform outputs
+	cd $(TF_DIR) && terraform output
+.PHONY: output
+
+ssh-key: # Save SSH private key to file
+	cd $(TF_DIR) && terraform output -raw ssh_private_key > ../../uptime-kuma-key.pem
+	chmod 600 uptime-kuma-key.pem
+	@echo "SSH key saved to uptime-kuma-key.pem"
+.PHONY: ssh-key
 
 todo: # Show to-do items per file
 	$(Q) grep \

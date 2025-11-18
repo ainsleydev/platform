@@ -1,5 +1,5 @@
 repository:
-  topics: webkit, payload, svelte-kit, golang
+  topics: ainsleydev, webkit, platform, terraform, golang
   private: false
   allow_merge_commit: false
   delete_branch_on_merge: true

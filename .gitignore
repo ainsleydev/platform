@@ -118,3 +118,24 @@ repopack.txt
 # ----------------------------------------- Claude Code --------------------------------------------
 
 .claude/settings.local.json
+
+# ----------------------------------------- Platform (Uptime Kuma) ---------------------------------
+# Added for Terraform, Ansible, and environment management
+
+# Terraform additions
+!**/*.tfvars.example
+**/.terraform.lock.hcl
+**/crash.log
+
+# SSH Keys additions
+**/*.pub
+**/id_rsa*
+**/*.ppk
+
+# Ansible
+**/*.retry
+**/ansible.log
+**/*.vault
+
+# Environment files
+.envrc

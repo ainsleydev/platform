@@ -1,0 +1,16 @@
+# Terraform Variables for Ainsley Dev Platform
+# Copy this file to terraform.tfvars and update with your actual values
+# Note: terraform.tfvars is gitignored for security
+
+# Hetzner Cloud API Token
+# Get from: https://console.hetzner.cloud/ -> Project -> Security -> API Tokens
+hetzner_token = "your-hetzner-token-here"
+
+# Admin email for Let's Encrypt SSL certificates
+admin_email = "hello@ainsley.dev"
+
+# Environment name
+environment = "production"
+
+# Project name (used for resource naming)
+project_name = "ainsley-dev-platform"
