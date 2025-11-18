@@ -1,0 +1,232 @@
+name: helper-apply
+
+on:
+  workflow_call:
+    inputs:
+      terraform-directory:
+        required: true
+        type: string
+        description: 'Path to terraform directory (e.g., terraform/base)'
+      environment:
+        required: true
+        type: string
+        description: 'GitHub environment for approval gate (e.g., production)'
+      download-plan:
+        required: false
+        type: boolean
+        default: true
+        description: 'Download and apply saved plan artifact from PR'
+      terraform-version:
+        required: false
+        type: string
+        default: '~1.13'
+        description: 'Terraform version to use'
+      pr-number:
+        required: false
+        type: string
+        default: ''
+        description: 'PR number to download plan from (auto-detected if not provided)'
+    outputs:
+      apply-exitcode:
+        description: 'Terraform apply exit code'
+        value: ${{ jobs.apply.outputs.exitcode }}
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      exitcode: ${{ steps.apply.outputs.exitcode }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: true
+
+      - name: Find PR Number
+        id: find-pr
+        if: inputs.download-plan && inputs.pr-number == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Find the PR that was just merged
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha
+            });
+
+            const mergedPR = prs.find(pr => pr.merged_at !== null);
+
+            if (mergedPR) {
+              console.log(`Found merged PR #${mergedPR.number}`);
+              core.setOutput('pr-number', mergedPR.number.toString());
+              return mergedPR.number;
+            } else {
+              console.log('No merged PR found for this commit');
+              core.setOutput('pr-number', '');
+              return '';
+            }
+
+      - name: Download Plan Artifact
+        if: inputs.download-plan
+        id: download-plan
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: tfplan-${{ inputs.pr-number || steps.find-pr.outputs.pr-number || github.sha }}
+          path: ${{ inputs.terraform-directory }}
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.terraform-directory }}
+        env:
+          BACK_BLAZE_KEY_ID: ${{ secrets.ORG_BACK_BLAZE_KEY_ID }}
+          BACK_BLAZE_APPLICATION_KEY: ${{ secrets.ORG_BACK_BLAZE_APPLICATION_KEY }}
+        run: |
+          terraform init \
+            -backend-config="access_key=${BACK_BLAZE_KEY_ID}" \
+            -backend-config="secret_key=${BACK_BLAZE_APPLICATION_KEY}"
+
+      - name: Backup State
+        id: backup-state
+        working-directory: ${{ inputs.terraform-directory }}
+        run: |
+          timestamp=$(date +%s)
+          terraform state pull > state-backup-${timestamp}.json
+
+          if [ -s state-backup-${timestamp}.json ]; then
+            echo "✅ State backed up successfully"
+            echo "backup_file=state-backup-${timestamp}.json" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ State backup is empty (this may be first apply)"
+          fi
+
+      - name: Upload State Backup
+        if: steps.backup-state.outputs.backup_file != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-state-backup-${{ github.sha }}
+          path: ${{ inputs.terraform-directory }}/${{ steps.backup-state.outputs.backup_file }}
+          retention-days: 90
+
+      - name: Terraform Apply (with saved plan)
+        id: apply-with-plan
+        if: steps.download-plan.outcome == 'success' && hashFiles(format('{0}/tfplan', inputs.terraform-directory)) != ''
+        working-directory: ${{ inputs.terraform-directory }}
+        run: |
+          echo "📦 Applying saved plan from PR..."
+          terraform apply -no-color tfplan | tee apply-output.txt
+          exitcode=${PIPESTATUS[0]}
+          echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+
+          if [ $exitcode -ne 0 ]; then
+            echo "::error::Terraform apply failed with exit code $exitcode"
+            exit 1
+          fi
+
+          echo "✅ Apply completed successfully"
+
+      - name: Terraform Apply (fresh plan)
+        id: apply-fresh
+        if: steps.apply-with-plan.outcome == 'skipped'
+        working-directory: ${{ inputs.terraform-directory }}
+        env:
+          TF_VAR_hetzner_token: ${{ secrets.ORG_HETZNER_TOKEN }}
+          TF_VAR_admin_email: ${{ vars.ADMIN_EMAIL || 'admin@ainsley.dev' }}
+          TF_VAR_environment: production
+          TF_VAR_project_name: ainsley-dev-platform
+        run: |
+          echo "⚠️ No saved plan found, generating fresh plan and applying..."
+          terraform plan -out=tfplan
+          terraform apply -no-color tfplan | tee apply-output.txt
+          exitcode=${PIPESTATUS[0]}
+          echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+
+          if [ $exitcode -ne 0 ]; then
+            echo "::error::Terraform apply failed with exit code $exitcode"
+            exit 1
+          fi
+
+          echo "✅ Apply completed successfully"
+
+      - name: Set Combined Output
+        id: apply
+        run: |
+          if [ "${{ steps.apply-with-plan.outcome }}" == "success" ]; then
+            echo "exitcode=${{ steps.apply-with-plan.outputs.exitcode }}" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.apply-fresh.outcome }}" == "success" ]; then
+            echo "exitcode=${{ steps.apply-fresh.outputs.exitcode }}" >> $GITHUB_OUTPUT
+          else
+            echo "exitcode=1" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post Apply Results
+        if: always() && (steps.apply-with-plan.outcome != 'skipped' || steps.apply-fresh.outcome != 'skipped')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const applyOutputPath = '${{ inputs.terraform-directory }}/apply-output.txt';
+
+            let body = '## 🚀 Terraform Apply Results\n\n';
+
+            const success = '${{ steps.apply.outputs.exitcode }}' === '0';
+
+            if (success) {
+              body += '✅ **Infrastructure changes applied successfully**\n\n';
+            } else {
+              body += '❌ **Apply failed - please check logs**\n\n';
+            }
+
+            // Add apply output if available
+            if (fs.existsSync(applyOutputPath)) {
+              const applyOutput = fs.readFileSync(applyOutputPath, 'utf8');
+              body += '<details>\n<summary>📄 View Apply Output</summary>\n\n';
+              body += '```\n' + applyOutput + '\n```\n';
+              body += '</details>\n';
+            }
+
+            body += `\n🔗 [View Workflow Run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            // Try to find and comment on the merged PR
+            const prNumber = '${{ inputs.pr-number || steps.find-pr.outputs.pr-number }}';
+
+            if (prNumber) {
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: parseInt(prNumber),
+                  body: body
+                });
+                console.log(`Posted results to PR #${prNumber}`);
+              } catch (error) {
+                console.log(`Could not post to PR #${prNumber}: ${error.message}`);
+              }
+            } else {
+              console.log('No PR found to comment on');
+            }
+
+            // Also create a commit comment
+            try {
+              await github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: body
+              });
+              console.log('Posted results as commit comment');
+            } catch (error) {
+              console.log(`Could not create commit comment: ${error.message}`);
+            }
+
+      - name: Cleanup Plan Files
+        if: always()
+        working-directory: ${{ inputs.terraform-directory }}
+        run: |
+          rm -f tfplan tfplan.json apply-output.txt state-backup-*.json

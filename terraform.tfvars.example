@@ -1,6 +1,13 @@
 # Terraform Variables for Ainsley Dev Platform
 # Copy this file to terraform.tfvars and update with your actual values
 # Note: terraform.tfvars is gitignored for security
+#
+# 🤖 CI/CD Note:
+# GitHub Actions workflows use organization secrets instead of this file:
+# - ORG_HETZNER_TOKEN (Hetzner API token)
+# - ORG_BACK_BLAZE_KEY_ID (Backend state storage)
+# - ORG_BACK_BLAZE_APPLICATION_KEY (Backend state storage)
+# This file is only needed for local Terraform operations.
 
 # Hetzner Cloud API Token
 # Get from: https://console.hetzner.cloud/ -> Project -> Security -> API Tokens

@@ -1,0 +1,186 @@
+name: helper-plan
+
+on:
+  workflow_call:
+    inputs:
+      terraform-directory:
+        required: true
+        type: string
+        description: 'Path to terraform directory (e.g., terraform/base)'
+      upload-plan:
+        required: false
+        type: boolean
+        default: true
+        description: 'Upload plan artifact for later apply'
+      terraform-version:
+        required: false
+        type: string
+        default: '~1.13'
+        description: 'Terraform version to use'
+    outputs:
+      plan-exitcode:
+        description: 'Terraform plan exit code (0=no changes, 2=has changes)'
+        value: ${{ jobs.plan.outputs.exitcode }}
+      has-changes:
+        description: 'Whether plan has changes (true/false)'
+        value: ${{ jobs.plan.outputs.has_changes }}
+      has-destroys:
+        description: 'Whether plan contains resource deletions (true/false)'
+        value: ${{ jobs.plan.outputs.has_destroys }}
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      exitcode: ${{ steps.plan.outputs.exitcode }}
+      has_changes: ${{ steps.plan.outputs.exitcode == '2' }}
+      has_destroys: ${{ steps.check-destroys.outputs.has_destroys }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: true
+
+      - name: Terraform Init
+        working-directory: ${{ inputs.terraform-directory }}
+        env:
+          BACK_BLAZE_KEY_ID: ${{ secrets.ORG_BACK_BLAZE_KEY_ID }}
+          BACK_BLAZE_APPLICATION_KEY: ${{ secrets.ORG_BACK_BLAZE_APPLICATION_KEY }}
+        run: |
+          terraform init \
+            -backend-config="access_key=${BACK_BLAZE_KEY_ID}" \
+            -backend-config="secret_key=${BACK_BLAZE_APPLICATION_KEY}"
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: ${{ inputs.terraform-directory }}
+        env:
+          TF_VAR_hetzner_token: ${{ secrets.ORG_HETZNER_TOKEN }}
+          TF_VAR_admin_email: ${{ vars.ADMIN_EMAIL || 'admin@ainsley.dev' }}
+          TF_VAR_environment: production
+          TF_VAR_project_name: ainsley-dev-platform
+        run: |
+          set +e
+          terraform plan -detailed-exitcode -out=tfplan -no-color | tee plan-output.txt
+          exitcode=$?
+          echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
+
+          # Exit code: 0 (no changes), 1 (error), 2 (has changes)
+          if [ $exitcode -eq 1 ]; then
+            echo "::error::Terraform plan failed"
+            exit 1
+          fi
+
+          exit 0
+
+      - name: Generate Plan Summary
+        id: plan-summary
+        if: always() && steps.plan.outcome != 'skipped'
+        working-directory: ${{ inputs.terraform-directory }}
+        run: |
+          if [ -f plan-output.txt ]; then
+            # Extract resource changes (no heading - added by PR comment step)
+            if grep -q "No changes" plan-output.txt; then
+              echo "✅ **No infrastructure changes detected**" > plan-summary.md
+            else
+              echo "📋 **Changes detected:**" > plan-summary.md
+              echo "" >> plan-summary.md
+
+              # Extract Plan: line
+              grep "Plan:" plan-output.txt | head -1 >> plan-summary.md || echo "Changes will be applied" >> plan-summary.md
+              echo "" >> plan-summary.md
+            fi
+
+            echo "<details>" >> plan-summary.md
+            echo "<summary>📄 View Full Plan</summary>" >> plan-summary.md
+            echo "" >> plan-summary.md
+            echo '```hcl' >> plan-summary.md
+            cat plan-output.txt >> plan-summary.md
+            echo '```' >> plan-summary.md
+            echo "</details>" >> plan-summary.md
+          else
+            echo "⚠️ Plan output not found" > plan-summary.md
+          fi
+
+      - name: Check for Destructive Changes
+        id: check-destroys
+        if: steps.plan.outputs.exitcode == '2'
+        working-directory: ${{ inputs.terraform-directory }}
+        run: |
+          # Convert plan to JSON and check for deletions
+          terraform show -json tfplan > tfplan.json
+
+          has_destroys="false"
+          if jq -e '.resource_changes[]? | select(.change.actions[] == "delete")' tfplan.json > /dev/null 2>&1; then
+            has_destroys="true"
+            echo "::warning::⚠️ This plan contains DESTRUCTIVE changes (resource deletions)"
+          fi
+
+          echo "has_destroys=$has_destroys" >> $GITHUB_OUTPUT
+
+      - name: Post Plan to PR
+        if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planSummary = fs.readFileSync('${{ inputs.terraform-directory }}/plan-summary.md', 'utf8');
+
+            let header = '## Terraform Plan Results\n\n';
+
+            // Add warning for destroys
+            const hasDestroys = '${{ steps.check-destroys.outputs.has_destroys }}' === 'true';
+            if (hasDestroys) {
+              header += '> ⚠️ **WARNING: This plan contains DESTRUCTIVE changes (resource deletions)**\n\n';
+            }
+
+            // Add note about apply process
+            const footer = '\n\n---\n📝 *To apply these changes: Merge this PR. Terraform will apply automatically after approval on the `production` environment.*';
+
+            const body = header + planSummary + footer;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('🏗️ Terraform Plan Results')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Upload Plan Artifact
+        if: inputs.upload-plan && steps.plan.outputs.exitcode == '2'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.event.pull_request.number || github.sha }}
+          path: |
+            ${{ inputs.terraform-directory }}/tfplan
+            ${{ inputs.terraform-directory }}/tfplan.json
+          retention-days: 30
+          if-no-files-found: warn
