@@ -1,0 +1,222 @@
+name: 'Slack Notification'
+description: 'Send rich notifications to Slack with Block Kit formatting'
+
+inputs:
+  slack_bot_token:
+    description: 'Slack bot token (xoxb-...)'
+    required: true
+  channel_id:
+    description: 'Slack channel ID to post to'
+    required: true
+  title:
+    description: 'Notification title (no emojis - added automatically based on status)'
+    required: true
+  message:
+    description: 'Main message body'
+    required: true
+  status:
+    description: 'Notification status: success, failure, warning, or info'
+    required: true
+  commit_sha:
+    description: 'Commit SHA for linking'
+    required: false
+    default: ''
+  buttons:
+    description: 'Optional JSON array of custom buttons: [{"text": "Button Text", "url": "https://..."}]'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Send Slack Notification
+      shell: bash
+      env:
+        SLACK_BOT_TOKEN: ${{ inputs.slack_bot_token }}
+        CHANNEL_ID: ${{ inputs.channel_id }}
+        TITLE: ${{ inputs.title }}
+        MESSAGE: ${{ inputs.message }}
+        STATUS: ${{ inputs.status }}
+        COMMIT_SHA: ${{ inputs.commit_sha }}
+        BUTTONS: ${{ inputs.buttons }}
+        WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+        ACTOR: ${{ github.actor }}
+      run: |
+        # Fail on errors, undefined vars, and fail if any part of a pipe fails
+        set -euo pipefail
+
+        # Determine colour based on status
+        case "$STATUS" in
+          success)
+            COLOR="#36a64f"
+            ;;
+          failure)
+            COLOR="#ff0000"
+            ;;
+          warning)
+            COLOR="#ffaa00"
+            ;;
+          info)
+            COLOR="#2196F3"
+            ;;
+          *)
+            COLOR="#808080"
+            ;;
+        esac
+
+        # Get current timestamp
+        TIMESTAMP=$(date +%s)
+
+        # Convert \n escape sequences to actual newlines for proper Slack rendering
+        # This handles both literal \n from YAML and actual newlines from command output
+        MESSAGE_FORMATTED=$(printf '%b' "$MESSAGE")
+
+        # Build Slack message with Block Kit using jq for proper JSON escaping
+        if [ -n "$COMMIT_SHA" ]; then
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          # Build commit link text with actual newline
+          COMMIT_LINK=$(printf '*Commit:*\n<%s/commit/%s|%s>' "$REPO_URL" "$COMMIT_SHA" "$SHORT_SHA")
+          FIELDS_JSON=$(jq -n \
+            --arg status_text "$(printf '*Status:*\n%s' "${STATUS^}")" \
+            --arg actor_text "$(printf '*Triggered By:*\n%s' "$ACTOR")" \
+            --arg commit_text "$COMMIT_LINK" \
+            '[
+              {"type": "mrkdwn", "text": $status_text},
+              {"type": "mrkdwn", "text": $actor_text},
+              {"type": "mrkdwn", "text": $commit_text}
+            ]')
+        else
+          FIELDS_JSON=$(jq -n \
+            --arg status_text "$(printf '*Status:*\n%s' "${STATUS^}")" \
+            --arg actor_text "$(printf '*Triggered By:*\n%s' "$ACTOR")" \
+            '[
+              {"type": "mrkdwn", "text": $status_text},
+              {"type": "mrkdwn", "text": $actor_text}
+            ]')
+        fi
+
+        # Build custom buttons array from input
+        if [ -n "$BUTTONS" ] && [ "$BUTTONS" != "[]" ] && [ "$BUTTONS" != "" ]; then
+          # Parse custom buttons and convert to Slack button format
+          CUSTOM_BUTTONS=$(echo "$BUTTONS" | jq -c '[.[] | {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": .text
+            },
+            "url": .url
+          }]')
+        else
+          CUSTOM_BUTTONS="[]"
+        fi
+
+        # Build standard buttons (workflow and repository)
+        STANDARD_BUTTONS=$(jq -n \
+          --arg workflow_url "$WORKFLOW_URL" \
+          --arg repo_url "$REPO_URL" \
+          '[
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "View Workflow"
+              },
+              "url": $workflow_url
+            },
+            {
+              "type": "button",
+              "text": {
+                "type": "plain_text",
+                "text": "View Repository"
+              },
+              "url": $repo_url
+            }
+          ]')
+
+        # Combine custom buttons with standard buttons (custom buttons first)
+        ALL_BUTTONS=$(jq -n \
+          --argjson custom "$CUSTOM_BUTTONS" \
+          --argjson standard "$STANDARD_BUTTONS" \
+          '$custom + $standard')
+
+        # Build the full payload with jq to ensure proper JSON escaping
+        PAYLOAD=$(jq -n \
+          --arg channel "$CHANNEL_ID" \
+          --arg color "$COLOR" \
+          --arg title "$TITLE" \
+          --argjson fields "$FIELDS_JSON" \
+          --arg message "$MESSAGE_FORMATTED" \
+          --argjson buttons "$ALL_BUTTONS" \
+          --arg workflow "$GITHUB_WORKFLOW" \
+          --arg timestamp "$TIMESTAMP" \
+          '{
+            "channel": $channel,
+            "text": "",
+            "attachments": [
+              {
+                "color": $color,
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": $title
+                    }
+                  },
+                  {
+                    "type": "section",
+                    "fields": $fields
+                  },
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": $message
+                    }
+                  },
+                  {
+                    "type": "actions",
+                    "elements": $buttons
+                  },
+                  {
+                    "type": "context",
+                    "elements": [
+                      {
+                        "type": "mrkdwn",
+                        "text": ("Workflow: " + $workflow + " | Time: <!date^" + $timestamp + "^{date_short_pretty} at {time}|" + (now|strftime("%c")) + ">")
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }')
+
+        # Send to Slack
+        RESPONSE=$(curl -X POST https://slack.com/api/chat.postMessage \
+          -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+          -H "Content-Type: application/json; charset=utf-8" \
+          -d "${PAYLOAD}" \
+          -w "\n%{http_code}" \
+          -s)
+
+        # Extract HTTP status code and response body
+        HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+        RESPONSE_BODY=$(echo "$RESPONSE" | head -n-1)
+
+        # Check if the request was successful
+        if [ "$HTTP_CODE" != "200" ]; then
+          echo "Error: Failed to send Slack notification (HTTP ${HTTP_CODE})"
+          echo "Response: ${RESPONSE_BODY}"
+          exit 1
+        fi
+
+        # Check if Slack API returned ok: true
+        if ! echo "$RESPONSE_BODY" | grep -q '"ok":true'; then
+          echo "Error: Slack API returned an error"
+          echo "Response: ${RESPONSE_BODY}"
+          exit 1
+        fi
+
+        echo "✓ Slack notification sent successfully"
