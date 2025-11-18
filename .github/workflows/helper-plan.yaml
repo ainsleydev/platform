@@ -1,4 +1,4 @@
-name: helper-plan
+name: Helper Plan
 
 on:
   workflow_call:

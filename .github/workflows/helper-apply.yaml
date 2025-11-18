@@ -1,4 +1,4 @@
-name: helper-apply
+name: Helper Apply
 
 on:
   workflow_call:
