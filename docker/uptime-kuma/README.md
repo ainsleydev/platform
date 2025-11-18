@@ -27,7 +27,7 @@ On the production VM, the docker-compose.yml is deployed via Ansible with these 
 - `DATA_PATH=/mnt/uptime-kuma` (Hetzner volume mount point)
 - Nginx reverse proxy configured for HTTPS
 - Let's Encrypt SSL certificate
-- Accessible at: https://status.ainsley.dev
+- Accessible at: https://uptime.ainsley.dev
 
 ## Data Persistence
 

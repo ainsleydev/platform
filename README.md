@@ -7,7 +7,7 @@ Ansible.
 
 This repository manages infrastructure for:
 
-- **Uptime Kuma**: Monitoring and status page service at `status.ainsley.dev`
+- **Uptime Kuma**: Monitoring and status page service at `uptime.ainsley.dev`
 - **Backups**: Terraform backups from Backblaze to Google Drive.
 
 ## Architecture

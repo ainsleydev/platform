@@ -25,7 +25,7 @@ The cloud-init script automatically clones the WebKit repository to `/opt/webkit
 
 ```bash
 ansible-playbook -i inventory.ini playbooks/uptime-kuma.yaml \
-  -e "domain=status.ainsley.dev" \
+  -e "domain=uptime.ainsley.dev" \
   -e "admin_email=hello@ainsley.dev"
 ```
 
@@ -34,7 +34,7 @@ ansible-playbook -i inventory.ini playbooks/uptime-kuma.yaml \
 Create an `inventory.ini` file:
 ```ini
 [uptime_kuma]
-status.ainsley.dev ansible_host=YOUR_SERVER_IP ansible_user=root
+uptime.ainsley.dev ansible_host=YOUR_SERVER_IP ansible_user=root
 ```
 
 ## Cloud-Init Integration

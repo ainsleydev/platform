@@ -31,7 +31,7 @@ variable "volume_size" {
 variable "domain" {
   type        = string
   description = "Domain for the Uptime Kuma instance"
-  default     = "status.ainsley.dev"
+  default     = "uptime.ainsley.dev"
 }
 
 variable "admin_email" {
