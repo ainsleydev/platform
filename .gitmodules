@@ -1,3 +1,4 @@
 [submodule "vendor/webkit"]
 	path = vendor/webkit
 	url = https://github.com/ainsleydev/webkit
+	ignore = dirty
