@@ -119,7 +119,7 @@ repopack.txt
 
 .claude/settings.local.json
 
-# ----------------------------------------- Platform (Uptime Kuma) ---------------------------------
+# ----------------------------------------- Repo Specific  -----------------------------------------
 # Added for Terraform, Ansible, and environment management
 
 # Terraform additions

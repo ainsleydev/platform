@@ -8,14 +8,13 @@ Ansible.
 This repository manages infrastructure for:
 
 - **Uptime Kuma**: Monitoring and status page service at `status.ainsley.dev`
-- Future platform services...
+- **Backups**: Terraform backups from Backblaze to Google Drive.
 
 ## Architecture
 
 - **Infrastructure**: Terraform with Hetzner Cloud
 - **Configuration**: Ansible (references roles from [WebKit](https://github.com/ainsleydev/webkit))
 - **Deployment**: Docker Compose on VMs
-- **Provisioning**: Cloud-init
 - **State**: Backblaze B2 remote backend
 
 ## Directory Structure
@@ -49,22 +48,6 @@ platform/
     ├── terraform-plan.yml        # PR checks
     └── terraform-apply.yml       # Deploy to production
 ```
-
-## Prerequisites
-
-1. **Hetzner Cloud Account**
-	- Create account at: https://www.hetzner.com/cloud
-	- Generate API token: Console -> Project -> Security -> API Tokens
-
-2. **Backblaze B2 Account** (for Terraform state)
-	- Create account at: https://www.backblaze.com/b2/
-	- Create bucket: `ainsley-dev-terraform`
-	- Generate application key
-
-3. **Local Tools**
-   ```bash
-   brew install terraform tflint ansible docker
-   ```
 
 ## Setup
 

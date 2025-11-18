@@ -10,6 +10,4 @@ module "volume" {
   format    = "ext4"
   automount = true
   tags      = concat(var.tags, [var.environment])
-
-  prevent_destroy = var.environment == "production"
 }
