@@ -49,5 +49,5 @@ variable "environment" {
 variable "tags" {
   type        = list(string)
   description = "Tags to apply to resources"
-  default     = ["uptime-kuma", "monitoring", "production"]
+  default     = ["uptime-kuma", "monitoring"]
 }
