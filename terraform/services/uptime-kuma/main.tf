@@ -36,6 +36,8 @@ module "server" {
 # Hetzner Volume (Webkit)
 #
 # Uses persistent data to save the Uptime Kuma Data.
+# Note: lifecycle blocks cannot be used on modules, only resources.
+# Data protection is provided by state backups and approval gates in CI/CD.
 module "volume" {
   source = "github.com/ainsleydev/webkit//platform/terraform/providers/hetzner/volume?ref=main"
 
@@ -46,11 +48,6 @@ module "volume" {
   format    = "ext4"
   automount = true
   tags      = concat(var.tags, [var.environment])
-
-  # Prevent accidental deletion of volume containing data
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # Ansible Config
