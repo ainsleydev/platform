@@ -1,4 +1,5 @@
 # Uptime Kuma Service Module
+#
 # This module creates a Hetzner VM for Uptime Kuma monitoring service using WebKit's server module
 
 terraform {
@@ -14,8 +15,9 @@ provider "hcloud" {
   token = var.hetzner_token
 }
 
-# Use WebKit's Hetzner server module
-# This creates the VM, SSH keys, firewall, and installs Ansible via cloud-init
+# Hetzner Server (WebKit)
+#
+# This creates the VM, SSH keys, firewall, and installs Ansible via cloud-init.
 module "server" {
   source = "github.com/ainsleydev/webkit//platform/terraform/providers/hetzner/server?ref=main"
 
@@ -26,8 +28,9 @@ module "server" {
   ssh_key_ids = ["hello@ainsley.dev"]
 }
 
-# Hetzner Volume for persistent Uptime Kuma data
-# Uses WebKit's volume module from GitHub
+# Hetzner Volume (Webkit)
+#
+# Uses persistent data to save the Uptime Kuma Data.
 module "volume" {
   source = "github.com/ainsleydev/webkit//platform/terraform/providers/hetzner/volume?ref=main"
 
