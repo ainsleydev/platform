@@ -23,6 +23,7 @@ module "server" {
   server_type = var.server_type
   location    = var.location
   tags        = var.tags
+  ssh_key_ids = ["hello@ainsley.dev"]
 }
 
 # Hetzner Volume for persistent Uptime Kuma data
