@@ -44,9 +44,6 @@ platform/
 │       ├── docker-compose.yml    # Works for local + VM
 │       ├── .env.example
 │       └── README.md
-└── .github/workflows/
-    ├── terraform-plan.yml        # PR checks
-    └── terraform-apply.yml       # Deploy to production
 ```
 
 ## Setup
@@ -111,16 +108,3 @@ from [WebKit's Terraform modules](https://github.com/ainsleydev/webkit/tree/main
 - Firewall rules
 - SSH key generation
 - Cloud-init integration
-
-## CI/CD
-
-### Terraform Plan (on PR)
-
-- Validates Terraform syntax
-- Runs `terraform plan`
-- Posts plan output as PR comment
-
-### Terraform Apply (on merge to main)
-
-- Applies infrastructure changes
-- Updates remote state in B2
