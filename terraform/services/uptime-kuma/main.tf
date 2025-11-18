@@ -46,6 +46,11 @@ module "volume" {
   format    = "ext4"
   automount = true
   tags      = concat(var.tags, [var.environment])
+
+  # Prevent accidental deletion of volume containing data
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Ansible Config

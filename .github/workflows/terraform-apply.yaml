@@ -1,0 +1,104 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '**.tf'
+  workflow_dispatch:
+    inputs:
+      terraform-directory:
+        description: 'Terraform directory to apply (e.g., terraform/base)'
+        required: false
+        default: 'terraform/base'
+      skip-plan-download:
+        description: 'Skip downloading PR plan artifact (generate fresh plan)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  detect-changes:
+    name: Detect Terraform Changes
+    runs-on: ubuntu-latest
+    outputs:
+      has-terraform-changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for Terraform changes
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Manual workflow dispatch - will proceed with apply"
+            exit 0
+          fi
+
+          # Check if terraform files changed in this push
+          if git diff --name-only HEAD^..HEAD | grep -E '^terraform/|\.tf$'; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "Terraform changes detected"
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No terraform changes detected"
+          fi
+
+  apply:
+    name: Apply Infrastructure Changes
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-terraform-changes == 'true'
+    uses: ./.github/workflows/helper-apply.yaml
+    with:
+      terraform-directory: ${{ inputs.terraform-directory || 'terraform/base' }}
+      environment: production
+      download-plan: ${{ !inputs.skip-plan-download }}
+      terraform-version: '~1.13'
+    secrets: inherit
+
+  notify-completion:
+    name: Notify Completion
+    runs-on: ubuntu-latest
+    needs: [detect-changes, apply]
+    if: always() && needs.detect-changes.outputs.has-terraform-changes == 'true'
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🏗️ Terraform Apply Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.apply.result }}" == "success" ]; then
+            echo "✅ **Infrastructure changes applied successfully**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Your infrastructure has been updated on the \`production\` environment." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.apply.result }}" == "failure" ]; then
+            echo "❌ **Apply failed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the [workflow logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ needs.apply.result }}" == "cancelled" ]; then
+            echo "⚠️ **Apply was cancelled**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Apply was skipped or had an unknown status**" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+
+  notify-skip:
+    name: Notify No Changes
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-terraform-changes == 'false'
+    steps:
+      - name: Summary
+        run: |
+          echo "## 🏗️ Terraform Apply Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ **No infrastructure changes detected**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This push did not modify any Terraform files. Skipping apply." >> $GITHUB_STEP_SUMMARY

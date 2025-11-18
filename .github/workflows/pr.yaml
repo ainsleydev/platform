@@ -182,6 +182,15 @@ jobs:
             docker compose -f "$compose_file" config > /dev/null
           done
 
+  terraform-plan:
+    name: Terraform Plan
+    uses: ./.github/workflows/helper-plan.yaml
+    with:
+      terraform-directory: terraform/base
+      upload-plan: true
+      terraform-version: '~1.13'
+    secrets: inherit
+
   pr-validation-summary:
     name: PR Validation Summary
     runs-on: ubuntu-latest
@@ -189,6 +198,7 @@ jobs:
       - terraform-validation
       - terraform-lint
       - terraform-security
+      - terraform-plan
       - ansible-validation
       - yaml-validation
       - docker-validation
@@ -202,6 +212,7 @@ jobs:
           # This job will fail if any required job failed
           if [ "${{ needs.terraform-validation.result }}" != "success" ] || \
              [ "${{ needs.terraform-lint.result }}" != "success" ] || \
+             [ "${{ needs.terraform-plan.result }}" != "success" ] || \
              [ "${{ needs.ansible-validation.result }}" != "success" ] || \
              [ "${{ needs.yaml-validation.result }}" != "success" ] || \
              [ "${{ needs.docker-validation.result }}" != "success" ]; then
