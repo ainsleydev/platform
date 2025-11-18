@@ -1,6 +1,7 @@
 # Uptime Kuma Service Module
 #
-# This module creates a Hetzner VM for Uptime Kuma monitoring service using WebKit's server module
+# This module creates a Hetzner VM for Uptime Kuma monitoring
+# service using WebKit's server/volume modules.
 
 terraform {
   required_providers {

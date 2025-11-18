@@ -22,7 +22,7 @@ lint: # Lint Terraform files
 .PHONY: lint
 
 init: # Initialize Terraform with B2 backend
-	terraform -chdir=$(TF_DIR) init \
+	terraform -chdir=$(TF_DIR) init -upgrade \
 		-backend-config="access_key=${BACK_BLAZE_KEY_ID}" \
 		-backend-config="secret_key=${BACK_BLAZE_APPLICATION_KEY}"
 .PHONY: init
