@@ -1,18 +1,15 @@
 # Hetzner Volume for persistent Uptime Kuma data
-resource "hcloud_volume" "uptime_kuma_data" {
-  name     = "${var.service_name}-data"
-  size     = var.volume_size
-  location = var.location
-  format   = "ext4"
-  labels = {
-    service     = var.service_name
-    environment = var.environment
-  }
-}
+# Uses WebKit's volume module from GitHub
+module "volume" {
+  source = "github.com/ainsleydev/webkit//platform/terraform/providers/hetzner/volume?ref=main"
 
-# Attach volume to the server
-resource "hcloud_volume_attachment" "uptime_kuma_data" {
-  volume_id = hcloud_volume.uptime_kuma_data.id
-  server_id = module.server.id
+  name      = "${var.service_name}-data"
+  size      = var.volume_size
+  location  = var.location
+  server_id = hcloud_server.this.id
+  format    = "ext4"
   automount = true
+  tags      = concat(var.tags, [var.environment])
+
+  prevent_destroy = var.environment == "production"
 }

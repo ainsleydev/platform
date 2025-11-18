@@ -26,12 +26,12 @@ output "ssh_user" {
 
 output "volume_id" {
   description = "Hetzner volume ID"
-  value       = hcloud_volume.uptime_kuma_data.id
+  value       = module.volume.id
 }
 
 output "volume_device" {
   description = "Volume device path on the server"
-  value       = "/dev/disk/by-id/scsi-0HC_Volume_${hcloud_volume.uptime_kuma_data.id}"
+  value       = module.volume.linux_device
 }
 
 output "domain" {
