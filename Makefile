@@ -11,6 +11,7 @@ setup: # Setup's local machine
 	brew install tflint
 	brew install jq
 	brew install ansible
+	git submodule update --init --recursive
 .PHONY: setup
 
 fmt: # Format Terraform files
@@ -26,6 +27,16 @@ init: # Initialize Terraform with B2 backend
 		-backend-config="access_key=${BACK_BLAZE_KEY_ID}" \
 		-backend-config="secret_key=${BACK_BLAZE_APPLICATION_KEY}"
 .PHONY: init
+
+init-vendor: # Initialize Git submodules (WebKit roles)
+	git submodule update --init --recursive
+	@echo "WebKit submodule initialized successfully"
+.PHONY: init-vendor
+
+update-roles: # Update WebKit Ansible roles to latest
+	git submodule update --remote vendor/webkit
+	@echo "WebKit roles updated to latest version"
+.PHONY: update-roles
 
 plan: # Run Terraform plan
 	terraform -chdir=$(TF_DIR) plan -var-file=$(TFVARS)
@@ -49,7 +60,7 @@ ssh-key: # Save SSH private key to file
 	@echo "SSH key saved to uptime-kuma-key.pem"
 .PHONY: ssh-key
 
-deploy-uptime: # Deploy or update Uptime Kuma using Ansible
+deploy-uptime: init-vendor # Deploy or update Uptime Kuma using Ansible
 	@echo "Deploying Uptime Kuma..."
 	@if [ ! -f ansible/inventory-uptime-kuma.ini ]; then \
 		echo "Error: Ansible inventory file not found. Run 'make apply' first to generate it."; \
