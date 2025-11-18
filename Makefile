@@ -3,6 +3,9 @@
 # Terraform working directory
 TF_DIR := terraform/base
 
+# Terraform variables file (relative to TF_DIR)
+TFVARS ?= ../../terraform.tfvars
+
 setup: # Setup's local machine
 	brew install terraform
 	brew install tflint
@@ -19,29 +22,29 @@ lint: # Lint Terraform files
 .PHONY: lint
 
 init: # Initialize Terraform with B2 backend
-	cd $(TF_DIR) && terraform init \
+	terraform -chdir=$(TF_DIR) init \
 		-backend-config="access_key=${BACK_BLAZE_KEY_ID}" \
 		-backend-config="secret_key=${BACK_BLAZE_APPLICATION_KEY}"
 .PHONY: init
 
 plan: # Run Terraform plan
-	cd $(TF_DIR) && terraform plan
+	terraform -chdir=$(TF_DIR) plan -var-file=$(TFVARS)
 .PHONY: plan
 
 apply: # Apply Terraform changes
-	cd $(TF_DIR) && terraform apply
+	terraform -chdir=$(TF_DIR) apply -var-file=$(TFVARS)
 .PHONY: apply
 
 destroy: # Destroy Terraform infrastructure
-	cd $(TF_DIR) && terraform destroy
+	terraform -chdir=$(TF_DIR) destroy -var-file=$(TFVARS)
 .PHONY: destroy
 
 output: # Show Terraform outputs
-	cd $(TF_DIR) && terraform output
+	terraform -chdir=$(TF_DIR) output
 .PHONY: output
 
 ssh-key: # Save SSH private key to file
-	cd $(TF_DIR) && terraform output -raw ssh_private_key > ../../uptime-kuma-key.pem
+	terraform -chdir=$(TF_DIR) output -raw ssh_private_key > uptime-kuma-key.pem
 	chmod 600 uptime-kuma-key.pem
 	@echo "SSH key saved to uptime-kuma-key.pem"
 .PHONY: ssh-key
