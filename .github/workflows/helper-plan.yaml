@@ -84,14 +84,11 @@ jobs:
         working-directory: ${{ inputs.terraform-directory }}
         run: |
           if [ -f plan-output.txt ]; then
-            # Extract resource changes
-            echo "## Terraform Plan Summary" > plan-summary.md
-            echo "" >> plan-summary.md
-
+            # Extract resource changes (no heading - added by PR comment step)
             if grep -q "No changes" plan-output.txt; then
-              echo "✅ **No infrastructure changes detected**" >> plan-summary.md
+              echo "✅ **No infrastructure changes detected**" > plan-summary.md
             else
-              echo "📋 **Changes detected:**" >> plan-summary.md
+              echo "📋 **Changes detected:**" > plan-summary.md
               echo "" >> plan-summary.md
 
               # Extract Plan: line
@@ -134,7 +131,7 @@ jobs:
             const fs = require('fs');
             const planSummary = fs.readFileSync('${{ inputs.terraform-directory }}/plan-summary.md', 'utf8');
 
-            let header = '## 🏗️ Terraform Plan Results\n\n';
+            let header = '## Terraform Plan Results\n\n';
 
             // Add warning for destroys
             const hasDestroys = '${{ steps.check-destroys.outputs.has_destroys }}' === 'true';
