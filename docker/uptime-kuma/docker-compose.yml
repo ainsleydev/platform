@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    volumes:
+      # Use environment variable for data path
+      # Local dev: ./data (default)
+      # Production VM: /mnt/uptime-kuma (set via .env or cloud-init)
+      - ${DATA_PATH:-./data}:/app/data
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    environment:
+      # Optional: Set timezone
+      - TZ=${TZ:-UTC}
+    networks:
+      - uptime-kuma
+
+networks:
+  uptime-kuma:
+    driver: bridge
