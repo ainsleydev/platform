@@ -5,8 +5,9 @@ terraform {
     region = "us-east-1"
 
     # Backblaze B2 S3-compatible endpoint
-    # Use eu-central-003 as the region endpoint
-    endpoint = "s3.eu-central-003.backblazeb2.com"
+    endpoints = {
+      s3 = "https://s3.eu-central-003.backblazeb2.com"
+    }
 
     # Disable AWS-specific features
     skip_credentials_validation = true
