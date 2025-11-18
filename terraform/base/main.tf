@@ -1,7 +1,6 @@
-# Main Terraform configuration for Ainsley Dev Platform
+# Main Terraform configuration for ainsley.dev Platform
 # This file imports and configures service modules
 
-# Import Uptime Kuma service module
 module "uptime_kuma" {
   source = "../services/uptime-kuma"
 
