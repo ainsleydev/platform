@@ -48,6 +48,7 @@
     name: docker
     state: present
     executable: pip3
+    extra_args: --break-system-packages
 
 - name: Ensure Docker is started and enabled
   service:
