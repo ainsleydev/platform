@@ -1,0 +1,217 @@
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'terraform/**'
+      - 'ansible/**'
+      - 'docker/**'
+      - '**.tf'
+      - '**.yaml'
+      - '**.yml'
+      - 'Makefile'
+  workflow_dispatch:
+
+jobs:
+  terraform-validation:
+    name: Terraform Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.13
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        continue-on-error: false
+
+      - name: Terraform Validate (Base)
+        working-directory: terraform/base
+        run: |
+          # Create a temporary backend config for validation
+          cat > backend_override.tf << 'EOF'
+          terraform {
+            backend "local" {}
+          }
+          EOF
+
+          terraform init -backend=false
+          terraform validate
+
+          # Cleanup
+          rm -f backend_override.tf
+
+      - name: Terraform Validate (Uptime Kuma Service)
+        working-directory: terraform/services/uptime-kuma
+        run: |
+          terraform init -backend=false
+          terraform validate
+
+  terraform-lint:
+    name: Terraform Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: Initialize TFLint
+        run: tflint --init
+
+      - name: Run TFLint
+        run: tflint --recursive --format compact --minimum-failure-severity=error
+
+  terraform-security:
+    name: Terraform Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          additional_args: --soft-fail
+          format: default
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform/
+          framework: terraform
+          soft_fail: true
+          output_format: cli
+
+  ansible-validation:
+    name: Ansible Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible ansible-lint
+
+      - name: Ansible Syntax Check
+        working-directory: ansible
+        run: |
+          # Initialize submodules for WebKit roles
+          git submodule update --init --recursive || true
+
+          # Syntax check for all playbooks
+          for playbook in playbooks/*.yaml; do
+            echo "Checking syntax: $playbook"
+            ansible-playbook --syntax-check "$playbook"
+          done
+
+      - name: Ansible Lint
+        working-directory: ansible
+        run: |
+          ansible-lint playbooks/*.yaml || true
+
+  yaml-validation:
+    name: YAML Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: |
+          # Create yamllint config
+          cat > .yamllint.yml << 'EOF'
+          extends: default
+          rules:
+            line-length:
+              max: 120
+              level: warning
+            comments:
+              min-spaces-from-content: 1
+            indentation:
+              spaces: 2
+              indent-sequences: true
+            truthy:
+              allowed-values: ['true', 'false', 'on', 'off']
+          ignore: |
+            vendor/
+            .git/
+          EOF
+
+          yamllint -f colored .
+
+  docker-validation:
+    name: Docker Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Files
+        run: |
+          # Check all docker-compose files
+          for compose_file in $(find docker -name "docker-compose*.yml"); do
+            echo "Validating: $compose_file"
+            docker compose -f "$compose_file" config > /dev/null
+          done
+
+  pr-validation-summary:
+    name: PR Validation Summary
+    runs-on: ubuntu-latest
+    needs:
+      - terraform-validation
+      - terraform-lint
+      - terraform-security
+      - ansible-validation
+      - yaml-validation
+      - docker-validation
+    if: always()
+    steps:
+      - name: Check Results
+        run: |
+          echo "PR Validation Complete"
+          echo "All checks have finished running"
+
+          # This job will fail if any required job failed
+          if [ "${{ needs.terraform-validation.result }}" != "success" ] || \
+             [ "${{ needs.terraform-lint.result }}" != "success" ] || \
+             [ "${{ needs.ansible-validation.result }}" != "success" ] || \
+             [ "${{ needs.yaml-validation.result }}" != "success" ] || \
+             [ "${{ needs.docker-validation.result }}" != "success" ]; then
+            echo "Some required checks failed"
+            exit 1
+          fi
+
+          # Security checks are informational (soft-fail)
+          if [ "${{ needs.terraform-security.result }}" != "success" ]; then
+            echo "⚠️  Security scanning found issues (non-blocking)"
+          fi
+
+          echo "✅ All required validations passed"
