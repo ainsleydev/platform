@@ -9,7 +9,6 @@
     docker_port: 3001
     service_name: uptime-kuma
     data_mount_point: /mnt/uptime-kuma
-    docker_compose_dir: /opt/uptime-kuma
     enable_https: true
 
   pre_tasks:
@@ -89,41 +88,18 @@
         owner: root
         group: root
 
-    - name: Create docker-compose directory
-      file:
-        path: "{{ docker_compose_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Deploy docker-compose.yml for Uptime Kuma
-      copy:
-        dest: "{{ docker_compose_dir }}/docker-compose.yml"
-        mode: '0644'
-        content: |
-          version: '3.8'
-
-          services:
-            uptime-kuma:
-              image: louislam/uptime-kuma:1
-              container_name: uptime-kuma
-              volumes:
-                - {{ data_mount_point }}:/app/data
-              ports:
-                - "{{ docker_port }}:3001"
-              restart: unless-stopped
-              environment:
-                - TZ=Europe/London
-              networks:
-                - uptime-kuma
-
-          networks:
-            uptime-kuma:
-              driver: bridge
-
-    - name: Start Uptime Kuma with Docker Compose
-      community.docker.docker_compose_v2:
-        project_src: "{{ docker_compose_dir }}"
-        state: present
+    - name: Start Uptime Kuma container
+      community.docker.docker_container:
+        name: uptime-kuma
+        image: louislam/uptime-kuma:1
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ docker_port }}:3001"
+        volumes:
+          - "{{ data_mount_point }}:/app/data"
+        env:
+          TZ: "Europe/London"
 
     - name: Wait for Uptime Kuma to start
       uri:
