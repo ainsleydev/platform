@@ -77,6 +77,12 @@ ssh-key: # Save SSH private key to file
 	@echo "SSH key saved to uptime-kuma-key.pem"
 .PHONY: ssh-key
 
+ssh-key-peekaping: # Save Peekaping SSH private key to file
+	terraform -chdir=$(TF_DIR) output -raw module.peekaping.ssh_private_key > peekaping-key.pem
+	chmod 600 peekaping-key.pem
+	@echo "SSH key saved to peekaping-key.pem"
+.PHONY: ssh-key-peekaping
+
 deploy-uptime: init-vendor # Deploy or update Uptime Kuma using Ansible
 	@echo "Deploying Uptime Kuma..."
 	@if [ ! -f ansible/inventory-uptime-kuma.ini ]; then \
@@ -85,6 +91,15 @@ deploy-uptime: init-vendor # Deploy or update Uptime Kuma using Ansible
 	fi
 	cd ansible && ansible-playbook -i inventory-uptime-kuma.ini playbooks/uptime-kuma.yaml
 .PHONY: deploy-uptime
+
+deploy-peekaping: init-vendor # Deploy or update Peekaping using Ansible
+	@echo "Deploying Peekaping..."
+	@if [ ! -f ansible/inventory-peekaping.ini ]; then \
+		echo "Error: Ansible inventory file not found. Run 'make apply' first to generate it."; \
+		exit 1; \
+	fi
+	cd ansible && ansible-playbook -i inventory-peekaping.ini playbooks/peekaping.yaml
+.PHONY: deploy-peekaping
 
 todo: # Show to-do items per file
 	$(Q) grep \

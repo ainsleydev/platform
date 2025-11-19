@@ -8,3 +8,11 @@ module "uptime_kuma" {
   admin_email   = var.admin_email
   environment   = var.environment
 }
+
+module "peekaping" {
+  source = "../services/peekaping"
+
+  hetzner_token = var.hetzner_token
+  admin_email   = var.admin_email
+  environment   = var.environment
+}
