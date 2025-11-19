@@ -50,6 +50,10 @@ destroy: # Destroy Terraform infrastructure
 	terraform -chdir=$(TF_DIR) destroy -var-file=$(TFVARS)
 .PHONY: destroy
 
+temp: # Apply Terraform changes
+	terraform -chdir=$(TF_DIR) state list -var-file=$(TFVARS)
+.PHONY: temp
+
 output: # Show Terraform outputs
 	terraform -chdir=$(TF_DIR) output
 .PHONY: output
