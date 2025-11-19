@@ -132,12 +132,29 @@ ssh -i peekaping-key.pem root@<ip-address>
 
 ### Update Peekaping
 
+**Important**: See [VERSIONING.md](../../../VERSIONING.md) for detailed upgrade procedures.
+
+Quick upgrade:
+
+```bash
+# 1. Update version in ansible/playbooks/peekaping.yaml
+peekaping_version: v1.2.3
+
+# 2. Re-run deployment
+make deploy-peekaping
+```
+
+Or manually via SSH:
+
 ```bash
 # SSH into the server
 ssh -i peekaping-key.pem root@<ip-address>
 
-# Pull latest images
+# Update version in .env
 cd /opt/peekaping
+sed -i 's/PEEKAPING_VERSION=.*/PEEKAPING_VERSION=v1.2.3/' .env
+
+# Pull new images
 docker compose pull
 
 # Restart with new images

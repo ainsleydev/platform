@@ -51,10 +51,27 @@ docker compose up -d
 ## Configuration
 
 Edit `.env` file to customize:
+- **Version pinning** (`PEEKAPING_VERSION`) - Pin to specific version for stability
 - Database settings
 - Timezone
 - Client URL
 - Server port
+
+### Version Management
+
+**For production**, pin to specific versions:
+```bash
+PEEKAPING_VERSION=v1.2.3
+```
+
+**For development**, use latest:
+```bash
+PEEKAPING_VERSION=latest
+```
+
+Check available versions at: https://github.com/0xfurai/peekaping/releases
+
+See [VERSIONING.md](../../../VERSIONING.md) for upgrade procedures.
 
 ## Troubleshooting
 

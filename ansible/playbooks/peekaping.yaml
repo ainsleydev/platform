@@ -10,6 +10,9 @@
     service_name: peekaping
     data_mount_point: /mnt/peekaping
     enable_https: true
+    # Pin to specific version for production stability
+    # Check releases: https://github.com/0xfurai/peekaping/releases
+    peekaping_version: latest
 
   pre_tasks:
     - name: Update apt package cache
@@ -115,6 +118,9 @@
     - name: Create .env file for Peekaping
       copy:
         content: |
+          # Peekaping Version
+          PEEKAPING_VERSION={{ peekaping_version }}
+
           # Database Configuration
           DB_USER=root
           DB_PASS={{ lookup('password', '/tmp/peekaping_db_pass chars=ascii_letters,digits length=32') }}

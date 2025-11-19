@@ -18,7 +18,7 @@ services:
       start_period: 5s
 
   migrate:
-    image: 0xfurai/peekaping-migrate:latest
+    image: 0xfurai/peekaping-migrate:${PEEKAPING_VERSION:-latest}
     restart: "no"
     env_file:
       - .env
@@ -26,7 +26,7 @@ services:
       - ${DATA_PATH:-./.data/sqlite}:/app/data
 
   api:
-    image: 0xfurai/peekaping-api:latest
+    image: 0xfurai/peekaping-api:${PEEKAPING_VERSION:-latest}
     restart: unless-stopped
     env_file:
       - .env
@@ -51,7 +51,7 @@ services:
       start_period: 5s
 
   producer:
-    image: 0xfurai/peekaping-producer:latest
+    image: 0xfurai/peekaping-producer:${PEEKAPING_VERSION:-latest}
     restart: unless-stopped
     env_file:
       - .env
@@ -66,7 +66,7 @@ services:
       - appnet
 
   worker:
-    image: 0xfurai/peekaping-worker:latest
+    image: 0xfurai/peekaping-worker:${PEEKAPING_VERSION:-latest}
     restart: unless-stopped
     env_file:
       - .env
@@ -77,7 +77,7 @@ services:
       - appnet
 
   ingester:
-    image: 0xfurai/peekaping-ingester:latest
+    image: 0xfurai/peekaping-ingester:${PEEKAPING_VERSION:-latest}
     restart: unless-stopped
     env_file:
       - .env
@@ -92,7 +92,7 @@ services:
       - appnet
 
   web:
-    image: 0xfurai/peekaping-web:latest
+    image: 0xfurai/peekaping-web:${PEEKAPING_VERSION:-latest}
     depends_on:
       api:
         condition: service_healthy
