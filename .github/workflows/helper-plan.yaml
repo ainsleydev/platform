@@ -142,24 +142,6 @@ jobs:
 
           # Add footer
           FOOTER="---
-📝 *To apply these changes: Merge this PR. Terraform will apply automatically after approval on the \`production\` environment.*"
-
-          # Combine all parts
-          {
-            echo "COMMENT_BODY<<EOF"
-            echo "$HEADER"
-            echo ""
-            [ -n "$WARNING" ] && echo "$WARNING" && echo ""
-            echo "$PLAN_SUMMARY"
-            echo ""
-            echo "$FOOTER"
-            echo "EOF"
-          } >> $GITHUB_OUTPUT
-
-      - name: Post Plan to PR
-        if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
-        uses: ./.github/actions/pr-comment
-        with:
           body-includes: 'Terraform Plan Results'
           comment-body: ${{ steps.prepare-comment.outputs.COMMENT_BODY }}
           issue-number: ${{ github.event.pull_request.number }}
