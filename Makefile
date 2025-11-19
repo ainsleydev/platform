@@ -38,6 +38,19 @@ update-roles: # Update WebKit Ansible roles to latest
 	@echo "WebKit roles updated to latest version"
 .PHONY: update-roles
 
+sync-actions: # Sync GitHub Actions from WebKit submodule
+	@echo "Syncing GitHub Actions from vendor/webkit..."
+	@mkdir -p .github/actions
+	@rm -rf .github/actions/pr-comment .github/actions/slack-notify
+	@cp -r vendor/webkit/internal/templates/.github/actions/pr-comment .github/actions/
+	@cp -r vendor/webkit/internal/templates/.github/actions/slack-notify .github/actions/
+	@echo "✓ Actions synced successfully"
+	@echo "  - pr-comment: .github/actions/pr-comment/"
+	@echo "  - slack-notify: .github/actions/slack-notify/"
+	@echo ""
+	@echo "Run this command after updating the webkit submodule to get the latest action improvements."
+.PHONY: sync-actions
+
 plan: # Run Terraform plan
 	terraform -chdir=$(TF_DIR) plan -var-file=$(TFVARS)
 .PHONY: plan

@@ -123,56 +123,47 @@ jobs:
 
           echo "has_destroys=$has_destroys" >> $GITHUB_OUTPUT
 
+      - name: Prepare PR Comment Body
+        id: prepare-comment
+        if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
+        working-directory: ${{ inputs.terraform-directory }}
+        run: |
+          # Read plan summary
+          PLAN_SUMMARY=$(cat plan-summary.md)
+
+          # Build comment header
+          HEADER="## Terraform Plan Results"
+
+          # Add warning for destroys
+          WARNING=""
+          if [ "${{ steps.check-destroys.outputs.has_destroys }}" == "true" ]; then
+            WARNING="> ⚠️ **WARNING: This plan contains DESTRUCTIVE changes (resource deletions)**"
+          fi
+
+          # Add footer
+          FOOTER="---
+📝 *To apply these changes: Merge this PR. Terraform will apply automatically after approval on the \`production\` environment.*"
+
+          # Combine all parts
+          {
+            echo "COMMENT_BODY<<EOF"
+            echo "$HEADER"
+            echo ""
+            [ -n "$WARNING" ] && echo "$WARNING" && echo ""
+            echo "$PLAN_SUMMARY"
+            echo ""
+            echo "$FOOTER"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: Post Plan to PR
         if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
-        uses: actions/github-script@v7
+        uses: ./.github/actions/pr-comment
         with:
-          script: |
-            const fs = require('fs');
-            const planSummary = fs.readFileSync('${{ inputs.terraform-directory }}/plan-summary.md', 'utf8');
-
-            let header = '## Terraform Plan Results\n\n';
-
-            // Add warning for destroys
-            const hasDestroys = '${{ steps.check-destroys.outputs.has_destroys }}' === 'true';
-            if (hasDestroys) {
-              header += '> ⚠️ **WARNING: This plan contains DESTRUCTIVE changes (resource deletions)**\n\n';
-            }
-
-            // Add note about apply process
-            const footer = '\n\n---\n📝 *To apply these changes: Merge this PR. Terraform will apply automatically after approval on the `production` environment.*';
-
-            const body = header + planSummary + footer;
-
-            // Find existing comment
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-
-            const botComment = comments.find(comment =>
-              comment.user.type === 'Bot' &&
-              comment.body.includes('🏗️ Terraform Plan Results')
-            );
-
-            if (botComment) {
-              // Update existing comment
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              // Create new comment
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
+          body-includes: 'Terraform Plan Results'
+          comment-body: ${{ steps.prepare-comment.outputs.COMMENT_BODY }}
+          issue-number: ${{ github.event.pull_request.number }}
+          private-key: ${{ secrets.ORG_GITHUB_APP_PRIVATE_KEY }}
 
       - name: Upload Plan Artifact
         if: inputs.upload-plan && steps.plan.outputs.exitcode == '2'

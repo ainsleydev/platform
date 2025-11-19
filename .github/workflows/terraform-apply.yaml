@@ -66,7 +66,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [detect-changes, apply]
     if: always() && needs.detect-changes.outputs.has-terraform-changes == 'true'
+    env:
+      TF_SLACK_CHANNEL_ID: 'alerts'
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Summary
         run: |
           echo "## 🏗️ Terraform Apply Summary" >> $GITHUB_STEP_SUMMARY
@@ -88,6 +93,28 @@ jobs:
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🔗 [View commit](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Slack of Apply Success
+        if: needs.apply.result == 'success'
+        uses: ./.github/actions/slack-notify
+        with:
+          slack_bot_token: ${{ secrets.ORG_SLACK_BOT_TOKEN }}
+          channel_id: ${{ env.TF_SLACK_CHANNEL_ID }}
+          title: 'Terraform Apply Successful'
+          message: 'Infrastructure changes have been applied successfully to the production environment.'
+          status: 'success'
+          commit_sha: ${{ github.sha }}
+
+      - name: Notify Slack of Apply Failure
+        if: needs.apply.result == 'failure'
+        uses: ./.github/actions/slack-notify
+        with:
+          slack_bot_token: ${{ secrets.ORG_SLACK_BOT_TOKEN }}
+          channel_id: ${{ env.TF_SLACK_CHANNEL_ID }}
+          title: 'Terraform Apply Failed'
+          message: 'The infrastructure apply has failed. Please review the workflow logs immediately.'
+          status: 'failure'
+          commit_sha: ${{ github.sha }}
 
   notify-skip:
     name: Notify No Changes
