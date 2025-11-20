@@ -136,7 +136,6 @@ repopack.txt
 **/*.retry
 **/ansible.log
 **/*.vault
-**/inventory-*.ini
 
 # Environment files
 .envrc

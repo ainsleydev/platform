@@ -27,7 +27,7 @@ project_name = "ainsley-dev-platform"
 # Make sure DNS A records point to the server IPs after deployment
 
 # Uptime Kuma monitoring service
-uptime_kuma_domain = "uptime.ainsley.dev"
+uptime_kuma_domain = "old.ainsley.dev"
 
 # Peekaping monitoring service
-peekaping_domain = "peekaping.ainsley.dev"
+peekaping_domain = "uptime.ainsley.dev"
