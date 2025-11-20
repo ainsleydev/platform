@@ -28,12 +28,6 @@ variable "admin_email" {
 }
 
 # Service-specific domains
-variable "uptime_kuma_domain" {
-  type        = string
-  description = "Domain for Uptime Kuma monitoring service"
-  default     = "uptime.ainsley.dev"
-}
-
 variable "peekaping_domain" {
   type        = string
   description = "Domain for Peekaping monitoring service"

@@ -7,7 +7,7 @@ Ansible.
 
 This repository manages infrastructure for:
 
-- **Uptime Kuma**: Monitoring and status page service at `uptime.ainsley.dev`
+- **Peekaping**: Monitoring service
 - **Backups**: Terraform backups from Backblaze to Google Drive.
 
 ## Architecture
@@ -29,21 +29,15 @@ platform/
 │   │   ├── outputs.tf            # Global outputs
 │   │   └── main.tf               # Module imports
 │   └── services/
-│       └── uptime-kuma/          # Uptime Kuma service
-│           ├── main.tf           # VM + firewall
-│           ├── volume.tf         # 10GB persistent volume
-│           ├── cloud-init.yaml   # VM provisioning
-│           ├── variables.tf
-│           └── outputs.tf
+│       └── peekaping/            # Peekaping monitoring service
 ├── ansible/
 │   ├── playbooks/
-│   │   └── uptime-kuma.yaml      # Uptime Kuma deployment
+│   │   └── peekaping.yaml        # Peekaping deployment
 │   └── ansible.cfg               # References WebKit roles
 ├── docker/
-│   └── uptime-kuma/
-│       ├── docker-compose.yml    # Works for local + VM
-│       ├── .env.example
-│       └── README.md
+│   └── peekaping/
+│       ├── docker-compose.yml
+│       └── .env.example
 ```
 
 ## Setup
