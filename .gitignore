@@ -139,3 +139,7 @@ repopack.txt
 
 # Environment files
 .envrc
+
+# Docker local data
+**/docker/**/.data/
+**/docker/**/.env

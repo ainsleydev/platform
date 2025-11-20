@@ -1,0 +1,224 @@
+---
+- name: Deploy Peekaping with Docker and Nginx
+  hosts: all
+  become: true
+  vars:
+    # Variables to be passed via Terraform/cloud-init
+    # domain: uptime.ainsley.dev
+    # admin_email: hello@ainsley.dev
+    docker_port: 8383
+    service_name: peekaping
+    data_mount_point: /mnt/peekaping
+    enable_https: true
+    # Pin to specific version for production stability
+    # Check releases: https://github.com/0xfurai/peekaping/releases
+    peekaping_version: latest
+
+  pre_tasks:
+    - name: Update apt package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+      register: upgrade_result
+
+    - name: Ensure python3-pip is installed
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Reboot if kernel updated
+      reboot:
+        msg: 'Reboot initiated by Ansible due to package upgrade'
+        reboot_timeout: 600
+      when:
+        - upgrade_result.changed
+        - skip_reboot is not defined or not skip_reboot
+
+  roles:
+    - fail2ban
+    - docker
+    - nginx
+    - ufw
+
+  tasks:
+    - name: Check if Hetzner volume is attached
+      stat:
+        path: "{{ data_mount_point }}"
+      register: volume_mount
+
+    - name: Create data mount point directory
+      file:
+        path: "{{ data_mount_point }}"
+        state: directory
+        mode: '0755'
+      when: not volume_mount.stat.exists
+
+    - name: Find Hetzner volume device
+      shell: |
+        lsblk -o NAME,SERIAL,MOUNTPOINT | grep -E "HC_Volume" | head -1 | awk '{print "/dev/" $1}'
+      register: volume_device
+      changed_when: false
+      failed_when: false
+
+    - name: Format Hetzner volume if not already formatted
+      filesystem:
+        fstype: ext4
+        dev: "{{ volume_device.stdout }}"
+      when:
+        - volume_device.stdout != ""
+        - not volume_mount.stat.exists
+      ignore_errors: yes
+
+    - name: Mount Hetzner volume
+      mount:
+        path: "{{ data_mount_point }}"
+        src: "{{ volume_device.stdout }}"
+        fstype: ext4
+        state: mounted
+        opts: defaults,nofail
+      when: volume_device.stdout != ""
+      ignore_errors: yes
+
+    - name: Ensure mount point has correct permissions
+      file:
+        path: "{{ data_mount_point }}"
+        state: directory
+        mode: '0755'
+        owner: root
+        group: root
+
+    - name: Create Peekaping deployment directory
+      file:
+        path: /opt/peekaping
+        state: directory
+        mode: '0755'
+
+    - name: Copy docker-compose.yml to server
+      copy:
+        src: "{{ playbook_dir }}/../../docker/peekaping/docker-compose.yml"
+        dest: /opt/peekaping/docker-compose.yml
+        mode: '0644'
+
+    - name: Replace DATA_PATH variable in docker-compose.yml
+      replace:
+        path: /opt/peekaping/docker-compose.yml
+        regexp: '\$\{DATA_PATH:-\.\/.data\/sqlite\}'
+        replace: '{{ data_mount_point }}'
+
+    - name: Copy nginx.conf to server
+      copy:
+        src: "{{ playbook_dir }}/../../docker/peekaping/nginx.conf"
+        dest: /opt/peekaping/nginx.conf
+        mode: '0644'
+
+    - name: Create .env file for Peekaping
+      copy:
+        content: |
+          # Peekaping Version
+          PEEKAPING_VERSION={{ peekaping_version }}
+
+          # Database Configuration
+          DB_USER=root
+          DB_PASS={{ lookup('password', '/tmp/peekaping_db_pass chars=ascii_letters,digits length=32') }}
+          DB_NAME=/app/data/peekaping.db
+          DB_TYPE=sqlite
+
+          # Server Configuration
+          SERVER_PORT=8034
+          CLIENT_URL="https://{{ domain }}"
+
+          # Application Settings
+          MODE=prod
+          TZ="Europe/London"
+        dest: /opt/peekaping/.env
+        mode: '0600'
+
+    - name: Start Peekaping services
+      shell: |
+        cd /opt/peekaping
+        docker compose up -d
+      args:
+        executable: /bin/bash
+
+    - name: Wait for Peekaping API to start
+      uri:
+        url: "http://localhost:{{ docker_port }}/api/v1/health"
+        method: GET
+        status_code: 200
+      register: peekaping_health
+      retries: 30
+      delay: 10
+      until: peekaping_health.status == 200
+
+    - name: Disable default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Copy Nginx site configuration to server
+      copy:
+        src: "{{ playbook_dir }}/../../docker/peekaping/nginx-site.conf"
+        dest: /etc/nginx/sites-available/{{ domain }}
+        mode: '0644'
+
+    - name: Replace domain placeholder in Nginx config
+      replace:
+        path: /etc/nginx/sites-available/{{ domain }}
+        regexp: 'DOMAIN_PLACEHOLDER'
+        replace: '{{ domain }}'
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/{{ domain }}
+        dest: /etc/nginx/sites-enabled/{{ domain }}
+        state: link
+
+    - name: Test Nginx configuration
+      command: nginx -t
+      changed_when: false
+
+    - name: Reload Nginx
+      service:
+        name: nginx
+        state: reloaded
+
+    - name: Run Certbot to get HTTPS certificate
+      include_role:
+        name: certbot
+      when: enable_https | default(true) | bool
+
+    - name: Deploy SSL Nginx configuration after certificates are obtained
+      include_role:
+        name: nginx
+      vars:
+        skip_install: true
+      when: enable_https | default(true) | bool
+
+    - name: Display success message
+      debug:
+        msg: |
+          Peekaping has been successfully deployed!
+
+          Service Details:
+          ----------------
+          Domain: {{ domain }}
+          External Port: {{ docker_port }}
+          Data Location: {{ data_mount_point }}
+
+          Services Running:
+          - Redis (message broker)
+          - API (REST API server)
+          - Producer (job scheduler)
+          - Worker (monitoring executor)
+          - Ingester (result processor)
+          - Web (frontend SPA)
+          - Gateway (Nginx reverse proxy)
+
+          Access your Peekaping instance at:
+          https://{{ domain }}
+
+          Note: Ensure DNS A record for {{ domain }} points to this server's IP.
