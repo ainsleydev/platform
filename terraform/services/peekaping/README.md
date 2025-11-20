@@ -46,15 +46,21 @@ Peekaping is deployed in microservice mode with the following components:
 
 ### Customization
 
-To customize the deployment, create a `terraform.tfvars` file:
+Configure your domain and settings in `terraform.tfvars`:
 
 ```hcl
+# Required
 hetzner_token = "your-token-here"
-domain        = "monitoring.example.com"
-admin_email   = "admin@example.com"
-server_type   = "cx32"  # Larger server if needed
-volume_size   = 20      # More storage if needed
+
+# Service domains (customize these!)
+peekaping_domain = "monitoring.yourdomain.com"
+
+# Optional overrides
+admin_email = "admin@yourdomain.com"
+environment = "production"
 ```
+
+**Important**: After deployment, create a DNS A record pointing your domain to the server IP.
 
 ## Deployment Workflow
 
