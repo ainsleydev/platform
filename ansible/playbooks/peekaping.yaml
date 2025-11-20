@@ -99,7 +99,7 @@
 
     - name: Copy docker-compose.yml to server
       copy:
-        src: "{{ playbook_dir }}/../docker/peekaping/docker-compose.yml"
+        src: "{{ playbook_dir }}/../../docker/peekaping/docker-compose.yml"
         dest: /opt/peekaping/docker-compose.yml
         mode: '0644'
 
@@ -111,7 +111,7 @@
 
     - name: Copy nginx.conf to server
       copy:
-        src: "{{ playbook_dir }}/../docker/peekaping/nginx.conf"
+        src: "{{ playbook_dir }}/../../docker/peekaping/nginx.conf"
         dest: /opt/peekaping/nginx.conf
         mode: '0644'
 
