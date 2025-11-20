@@ -59,19 +59,24 @@ Edit `.env` file to customize:
 
 ### Version Management
 
-**For production**, pin to specific versions:
 ```bash
+# Production (recommended)
 PEEKAPING_VERSION=v1.2.3
-```
 
-**For development**, use latest:
-```bash
+# Development
 PEEKAPING_VERSION=latest
 ```
 
-Check available versions at: https://github.com/0xfurai/peekaping/releases
+**Upgrading**:
+```bash
+# Update version in .env
+echo "PEEKAPING_VERSION=v1.2.3" >> .env
 
-See [VERSIONING.md](../../../VERSIONING.md) for upgrade procedures.
+# Pull new images and restart
+docker compose pull && docker compose up -d
+```
+
+Check releases: https://github.com/0xfurai/peekaping/releases
 
 ## Troubleshooting
 

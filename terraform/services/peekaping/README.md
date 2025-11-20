@@ -130,21 +130,35 @@ ssh -i peekaping-key.pem root@<ip-address>
 
 ## Maintenance
 
-### Update Peekaping
+### Version Management
 
-**Important**: See [VERSIONING.md](../../../VERSIONING.md) for detailed upgrade procedures.
+Peekaping versions are controlled by the `PEEKAPING_VERSION` environment variable.
 
-Quick upgrade:
+**Check releases**: https://github.com/0xfurai/peekaping/releases
+
+**Best Practices**:
+- ✅ Production: Pin to specific versions (e.g., `v1.2.3`)
+- ✅ Development: Use `latest` to stay current
+- ✅ Always backup database before upgrades
+- ✅ Test new versions locally first
+
+### Upgrading Peekaping
+
+**Method 1: Via Ansible (Recommended)**
 
 ```bash
-# 1. Update version in ansible/playbooks/peekaping.yaml
+# 1. Backup database first
+ssh -i peekaping-key.pem root@<ip-address>
+cp /mnt/peekaping/peekaping.db /mnt/peekaping/backup-$(date +%Y%m%d).db
+
+# 2. Update version in ansible/playbooks/peekaping.yaml
 peekaping_version: v1.2.3
 
-# 2. Re-run deployment
+# 3. Re-run deployment
 make deploy-peekaping
 ```
 
-Or manually via SSH:
+**Method 2: Manual SSH Update**
 
 ```bash
 # SSH into the server
@@ -154,15 +168,14 @@ ssh -i peekaping-key.pem root@<ip-address>
 cd /opt/peekaping
 sed -i 's/PEEKAPING_VERSION=.*/PEEKAPING_VERSION=v1.2.3/' .env
 
-# Pull new images
-docker compose pull
-
-# Restart with new images
-docker compose up -d
+# Pull and restart
+docker compose pull && docker compose up -d
 
 # Clean up old images
 docker image prune -f
 ```
+
+**Rollback**: Change version back to previous in `.env` and restart
 
 ### View Logs
 
