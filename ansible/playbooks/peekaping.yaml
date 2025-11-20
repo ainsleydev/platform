@@ -154,6 +154,11 @@
       delay: 10
       until: peekaping_health.status == 200
 
+    - name: Disable default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
     - name: Copy Nginx site configuration to server
       copy:
         src: "{{ playbook_dir }}/../../docker/peekaping/nginx-site.conf"
