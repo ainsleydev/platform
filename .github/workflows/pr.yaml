@@ -48,12 +48,6 @@ jobs:
           # Cleanup
           rm -f backend_override.tf
 
-      - name: Terraform Validate (Uptime Kuma Service)
-        working-directory: terraform/services/uptime-kuma
-        run: |
-          terraform init -backend=false
-          terraform validate
-
   terraform-lint:
     name: Terraform Lint
     runs-on: ubuntu-latest

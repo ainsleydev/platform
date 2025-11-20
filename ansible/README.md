@@ -21,11 +21,11 @@ The cloud-init script automatically clones the WebKit repository to `/opt/webkit
 
 ## Running Playbooks
 
-### Uptime Kuma Deployment
+### Peekaping Deployment
 
 ```bash
-ansible-playbook -i inventory.ini playbooks/uptime-kuma.yaml \
-  -e "domain=uptime.ainsley.dev" \
+ansible-playbook -i inventory.ini playbooks/peekaping.yaml \
+  -e "domain=peekaping.ainsley.dev" \
   -e "admin_email=hello@ainsley.dev"
 ```
 
@@ -33,10 +33,6 @@ ansible-playbook -i inventory.ini playbooks/uptime-kuma.yaml \
 
 Create an `inventory.ini` file:
 ```ini
-[uptime_kuma]
-uptime.ainsley.dev ansible_host=YOUR_SERVER_IP ansible_user=root
+[peekaping]
+peekaping.ainsley.dev ansible_host=YOUR_SERVER_IP ansible_user=root
 ```
-
-## Cloud-Init Integration
-
-The Uptime Kuma service uses `ansible-pull` in cloud-init to automatically provision the VM. See `terraform/services/uptime-kuma/cloud-init.yaml` for details.

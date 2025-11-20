@@ -1,8 +1,0 @@
-# Environment file
-.env
-
-# Local data directory
-data/
-
-# Docker volumes
-volumes/
