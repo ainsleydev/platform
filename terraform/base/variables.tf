@@ -37,5 +37,4 @@ variable "uptime_kuma_domain" {
 variable "peekaping_domain" {
   type        = string
   description = "Domain for Peekaping monitoring service"
-  default     = "peekaping.ainsley.dev"
 }

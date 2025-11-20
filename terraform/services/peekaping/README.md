@@ -110,7 +110,7 @@ This runs the Ansible playbook which:
 
 Once deployed, access your instance at:
 ```
-https://peekaping.ainsley.dev
+https://uptime.ainsley.dev
 ```
 
 ## Outputs
@@ -241,7 +241,7 @@ curl http://localhost:8383/api/v1/health
 Re-run Certbot:
 
 ```bash
-certbot --nginx -d peekaping.ainsley.dev
+certbot --nginx -d uptime.ainsley.dev
 ```
 
 ### Volume Not Mounted

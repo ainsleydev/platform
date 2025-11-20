@@ -31,7 +31,6 @@ variable "volume_size" {
 variable "domain" {
   type        = string
   description = "Domain for the Peekaping instance"
-  default     = "peekaping.ainsley.dev"
 }
 
 variable "admin_email" {
